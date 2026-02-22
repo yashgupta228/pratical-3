@@ -1,53 +1,75 @@
 import streamlit as st
+
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-st.title("Spam Email Detector")
+st.set_page_config(page_title="Spam Email Detector", page_icon="📧", layout="centered")
 
+st.title("Spam Email Detector")
+st.write("Detect whether an email is Spam or Not Spam using Machine Learning")
+
+# Sample dataset
 emails = [
     "Win a free iPhone now",
     "Meeting at 11 am tomorrow",
     "Congratulations you won lottery",
-    "Project discussion with team",
-    "Claim your prize immediately",
-    "Please find the attached report",
-    "Limited offer buy now",
-    "Urgent offer expires today",
-    "Schedule the meeting for Monday",
-    "You have won a cash prize",
-    "Monthly performance report attached",
-    "Exclusive deal just for you"
+    "Project discussion today",
+    "Claim your free prize now",
+    "Let's have lunch tomorrow",
+    "Exclusive offer just for you",
+    "Team meeting agenda attached",
+    "Urgent! Update your account now",
+    "Family dinner tonight",
+    "Limited time discount offer",
+    "See you at the conference"
 ]
 
-labels = [1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1]
+labels = [1,0,1,0,1,0,1,0,1,0,1,0]  # 1 = Spam, 0 = Not Spam
 
-vectorizer = TfidfVectorizer(stop_words="english")
-X = vectorizer.fit_transform(emails)
+@st.cache_resource
+def train():
+    vectorizer = TfidfVectorizer(
+        lowercase=True,
+        stop_words="english",
+        ngram_range=(1,2),
+        max_df=0.9,
+        min_df=1
+    )
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, labels,
-    test_size=0.25,
-    random_state=42,
-    stratify=labels
-)
+    X = vectorizer.fit_transform(emails)
 
-model = LinearSVC()
-model.fit(X_train, y_train)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, labels,
+        test_size=0.25,
+        random_state=42,
+        stratify=labels
+    )
 
-accuracy = accuracy_score(y_test, model.predict(X_test))
-st.write(f"Model Accuracy: {accuracy:.2f}")
+    model = LinearSVC(C=1.0, random_state=42)
+    model.fit(X_train, y_train)
 
-user_msg = st.text_area("Enter Email Message")
+    acc = accuracy_score(y_test, model.predict(X_test))
+
+    return vectorizer, model, acc
+
+vectorizer, model, accuracy = train()
+
+st.info(f"Model Accuracy: {accuracy * 100:.2f}%")
+
+msg = st.text_area("Enter Email Message", height=120)
 
 if st.button("Check"):
-    if user_msg.strip() == "":
-        st.warning("Please enter a message")
+    if msg.strip() == "":
+        st.warning("Enter a message")
     else:
-        msg_vec = vectorizer.transform([user_msg])
-        pred = model.predict(msg_vec)[0]
+        vec = vectorizer.transform([msg])
+        pred = model.predict(vec)[0]
 
         if pred == 1:
-            st.error("Spam Email")
+            st.error("Result: Spam Email")
         else:
-            st.success("Not Spam Email")
+            st.success("Result: Not Spam Email")
+
+st.caption("TF-IDF + Linear SVM Spam Detector")
